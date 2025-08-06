@@ -9,3 +9,7 @@
 # Local dev
 .devbox
 .envrc.private
+
+# Storybook
+*storybook.log
+storybook-static
