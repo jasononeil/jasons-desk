@@ -1,5 +1,10 @@
 # SQLite Database Schema
 
+## Technology
+
+- Use sqlite for the database
+- Use drizzle for the ORM
+
 ## users
 - id (integer, primary key, auto increment)
 - username (text, unique, not null)
