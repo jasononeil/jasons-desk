@@ -1,2 +1,11 @@
-.envrc.private
+# Things to always ignore
+.DS_Store
+/node_modules/
+
+# React Router
+/.react-router/
+/build/
+
+# Local dev
 .devbox
+.envrc.private
