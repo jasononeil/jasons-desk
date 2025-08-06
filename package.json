@@ -6,6 +6,8 @@
     "build": "react-router build",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/index.js",
+    "test": "vitest",
+    "test:ci": "vitest --run",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
@@ -25,7 +27,8 @@
     "tailwindcss": "^4.1.4",
     "typescript": "^5.8.3",
     "vite": "^6.3.3",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
   },
   "packageManager": "pnpm@8.15.9+sha256.daa27a0b541bc635323ff96c2ded995467ff9fe6d69ff67021558aa9ad9dcc36"
 }
