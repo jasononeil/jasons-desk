@@ -2,9 +2,12 @@
 
 - Read @README.md for project context
 - There are more markdown files in `docs/`
-- Current plans (point-in-time snapshots) are in `docs/plans/`
-- Product specs (evolve over time) live in `docs/product/`. Keep these up-to-date as you implement changes in functionality.
+- Product specs (evolve over time) live in `docs/product/`.
+  - Read relevant specs whenever working on that part of the product.
+  - Keep product specs up-to-date as you implement changes in functionality.
   - See `docs/product/cli.md` for the CLI.
+- Current plans (point-in-time snapshots) are in `docs/plans/`
+  - Read only if that's the plan you're implementing, or you need to understand historic decisions. Otherwise check product spec instead.
 
 ## Tech choices
 
@@ -20,3 +23,20 @@
 ## Data model
 
 - Data model (tables, enums, relationships) is documented in `docs/tech/data-model.md`
+
+### Architecture
+
+Repo layout:
+
+- `cli/` - modules related to CLI command parsing and interactions (kept thin, minimal tests)
+- `api/` - business logic as function modules. (Used in CLI. We may support web or native UI one day.)
+- `model/` - utilities for interacting with our SQLite database
+- `migrations/` - numbered `.sql` migration files (see `docs/tech/sqlite.md`)
+
+## Tests
+
+Use `bun test`
+
+- `cli/` — kept thin, no tests needed
+- `api/` — unit tests for pure logic, integration tests for anything touching SQLite or the filesystem
+- Tests use `DESK_HOME` pointed at a temp directory for isolation
