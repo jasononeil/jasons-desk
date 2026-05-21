@@ -5,6 +5,6 @@
 
 ## Tech choices
 
-- We use Bun instead of Node.js. See `docs/bun.md`
+- We use Bun instead of Node.js. See `docs/tech/bun.md`
 - We use Devbox for installing tooling. See `devbox.json`
-- We can use MCP tools in scripts using MCPorter. See `docs/mcporter.md`
+- We can use MCP tools in scripts using MCPorter. See `docs/tech/mcporter.md`
