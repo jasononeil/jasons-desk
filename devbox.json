@@ -6,6 +6,8 @@
   },
   "shell": {
     "init_hook": ["test -e .envrc.private || cp .envrc.example .envrc.private"],
-    "scripts": {}
+    "scripts": {
+      "verify": "bun tsc && bun test"
+    }
   }
 }

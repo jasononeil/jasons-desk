@@ -8,6 +8,7 @@
   - See `docs/product/cli.md` for the CLI.
 - Current plans (point-in-time snapshots) are in `docs/plans/`
   - Read only if that's the plan you're implementing, or you need to understand historic decisions. Otherwise check product spec instead.
+- After finishing work always get a subagent to check if docs need updating based on the current branch diff (README.md, AGENTS.md).
 
 ## Tech choices
 
@@ -35,7 +36,9 @@ Repo layout:
 
 ## Tests
 
-Use `bun test`
+Use `devbox run verify` to run all local verification steps including `bun:test`.
+
+Tests are written using `bun:test`.
 
 - `cli/` — kept thin, no tests needed
 - `api/` — unit tests for pure logic, integration tests for anything touching SQLite or the filesystem
