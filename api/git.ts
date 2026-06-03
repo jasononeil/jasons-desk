@@ -36,6 +36,14 @@ export async function pullRepo(args: { repoPath: string }): Promise<void> {
   await simpleGit(args.repoPath).pull();
 }
 
+/** Check out `branchName` in `repoPath`. */
+export async function switchBranch(args: {
+  repoPath: string;
+  branchName: string;
+}): Promise<void> {
+  await simpleGit(args.repoPath).checkout(args.branchName);
+}
+
 /** True if the working tree at `repoPath` has staged or unstaged changes. */
 export async function hasUncommittedChanges(args: {
   repoPath: string;
