@@ -149,8 +149,10 @@ Slashes in branch names are replaced with `-` in filesystem paths (e.g. `feature
 1. If currently inside a worktree, print a notice: "Leaving worktree `[org]/[repo]/[branch]`"
 2. Resolve `repoSlug` and `branch` — prompt interactively if missing
 3. Check base repo at `~/desk/repos/[org]/[repo]`:
-   - If not cloned: clone via SSH (`git@github.com:[org]/[repo].git`), detect default branch via `git ls-remote --symref origin HEAD`, store in `repos.defaultBranch`
-   - If already cloned: error if uncommitted changes exist; otherwise switch to default branch and `git pull`
+   - If not cloned: clone via SSH (`git@github.com:[org]/[repo].git`) as a **bare** repo (`git clone --bare`), set the fetch refspec to `+refs/heads/*:refs/remotes/origin/*`, detect default branch via `git ls-remote --symref origin HEAD`, store in `repos.defaultBranch`
+   - If already cloned: `git fetch origin` to refresh `refs/remotes/origin/*`. The bare base has no working tree, so there's nothing to be dirty.
+
+   Why bare? A non-bare base would hold the default branch checked out, blocking `git worktree add` for the default branch (the most common case). A bare base lets every branch — including the default — own a worktree.
 4. Resolve worktree path: `~/desk/worktrees/[org]/[repo]/[sanitized-branch]/`
 5. If worktree already exists: print notice "Worktree already exists, opening existing" and `cd` in
 6. If branch doesn't exist on remote: create it automatically from the default branch
@@ -220,10 +222,7 @@ If private utility functions are needed for setting up the local git repo to avo
 - **`cloneRepo` throws a descriptive error on a non-existent repo** — SSH clone failure surfaces a clear error rather than crashing silently.
 - **`detectDefaultBranch` returns the correct branch name** — Given a local test repo with HEAD pointing to `main`, returns `"main"`.
 - **`detectDefaultBranch` returns the correct branch name** — Given a local test repo with HEAD pointing to `master`, returns `"master"`.
-- **`pullRepo` fetches latest commits** — After a commit is added to the remote, `pullRepo` makes it locally visible.
-- **`pullRepo` throws if the working directory has uncommitted changes** — Dirty working tree results in a clear error.
-- **`hasUncommittedChanges` returns `true` for staged and unstaged changes** — Covers both scenarios independently.
-- **`hasUncommittedChanges` returns `false` on a clean repo** — No false positives on a freshly cloned, unmodified repo.
+- **`fetchRepo` updates origin tracking refs** — After a commit is added to the remote, `fetchRepo` fast-forwards `refs/remotes/origin/<branch>` in the bare base. (The bare base has no working tree to dirty, so there is no "uncommitted changes" check here.)
 - **`addWorktree` creates the worktree directory at the expected path** — `$DESK_HOME/worktrees/[org]/[repo]/[sanitized-branch]/` exists and is a valid git worktree.
 - **`addWorktree` with a branch containing `/` sanitizes the path** — `feature/my-thing` produces directory `feature-my-thing`, not a nested subdirectory.
 - **`addWorktree` for an existing remote branch checks it out correctly** — An already-present branch is checked out rather than creating a new one.
@@ -242,7 +241,7 @@ Integration tests using a temp `DESK_HOME` and a local bare git repo.
 - **Re-opening an existing worktree** — Calling `open` again for the same `(repoSlug, branch)` returns the same path without error, and updates `lastOpened` in both `repos` and `branches`.
 - **`--task` flag links the branch to the task** — After `open("org/repo", "branch", { taskId: "CA-1234" })`, the `branches` row has `taskId = "CA-1234"`.
 - **`--task` flag creates the task if it does not yet exist** — Row is created in `tasks` with `Backlog` status without requiring a prior `desk task` call.
-- **Dirty working directory on re-open throws** — Uncommitted changes in the base repo clone surfaces a clear error and does not proceed.
+- **Opens the default branch into a worktree** — The most common case (`desk open <slug> main`) succeeds because the base is bare. Regression coverage.
 - **Prints "Leaving worktree" notice when called from inside a worktree** — When `$PWD` is a managed worktree path, the notice message is included in output.
 - **Branch already checked out in another worktree** — Prints a notice and returns the existing worktree path rather than attempting a second `git worktree add`.
 - **Non-existent branch is created from default branch** — Worktree is set up from the default branch head.

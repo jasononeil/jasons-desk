@@ -29,11 +29,7 @@ function openDb(path: string) {
   mkdirSync(dirname(path), { recursive: true });
   const client = new Database(path);
   client.exec("PRAGMA foreign_keys = ON;");
-  return drizzle({ client, schema });
-}
-
-export function migrateDb(deskHome: string = resolveDeskHome()) {
-  const db = getDb(deskHome);
+  const db = drizzle({ client, schema });
   migrate(db, { migrationsFolder: join(import.meta.dir, "..", "migrations") });
   return db;
 }

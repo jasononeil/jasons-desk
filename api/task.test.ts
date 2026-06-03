@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, eq } from "drizzle-orm";
-import { getDb, migrateDb } from "../model/db.ts";
+import { getDb } from "../model/db.ts";
 import { branches, repos, tasks } from "../model/schema.ts";
 import { cloneRepo, addWorktree } from "./git.ts";
 import { makeBareRepo } from "./git.testutil.ts";
@@ -15,7 +15,7 @@ let tmpRoots: string[] = [];
 function makeDeskHome(): string {
   const path = mkdtempSync(join(tmpdir(), "desk-home-"));
   tmpRoots.push(path);
-  migrateDb(path);
+  getDb(path);
   return path;
 }
 

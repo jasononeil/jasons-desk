@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getDb, migrateDb } from "../model/db.ts";
+import { getDb } from "../model/db.ts";
 import { branches, repos, tasks } from "../model/schema.ts";
 import { listBranches, listRepos, listTasks } from "./list.ts";
 
@@ -11,7 +11,7 @@ let tmpRoots: string[] = [];
 function makeDeskHome(): string {
   const path = mkdtempSync(join(tmpdir(), "desk-home-"));
   tmpRoots.push(path);
-  migrateDb(path);
+  getDb(path);
   return path;
 }
 

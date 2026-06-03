@@ -36,7 +36,7 @@ export async function makeBareRepo(opts?: {
 
 /**
  * Push a new commit to the given bare repo on the given branch. Used to
- * verify `pullRepo` picks up remote changes.
+ * verify `fetchRepo` picks up remote changes.
  */
 export async function pushCommitToRemote(args: {
   remoteUrl: string;

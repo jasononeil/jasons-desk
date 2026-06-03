@@ -1,11 +1,14 @@
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, relative, sep } from "node:path";
 import { simpleGit, type SimpleGit } from "simple-git";
 
 /**
- * Clone a remote into `destPath`. Creates parent directories as needed.
- * Throws a descriptive error if the clone fails (e.g. repo doesn't exist).
+ * Clone a remote into `destPath` as a bare repository. The base clone never
+ * has a checked-out branch so any branch — including the default — can be
+ * used in a worktree. After clone we rewrite the fetch refspec so that
+ * subsequent `git fetch` updates `refs/remotes/origin/*` (not `refs/heads/*`),
+ * which lets worktrees own their local branches without fetch conflicts.
  */
 export async function cloneRepo(args: {
   remoteUrl: string;
@@ -13,7 +16,7 @@ export async function cloneRepo(args: {
 }): Promise<void> {
   await mkdir(dirname(args.destPath), { recursive: true });
   try {
-    await simpleGit().clone(args.remoteUrl, args.destPath);
+    await simpleGit().clone(args.remoteUrl, args.destPath, ["--bare"]);
   } catch (err) {
     throw new Error(
       `Failed to clone ${args.remoteUrl} into ${args.destPath}: ${
@@ -21,35 +24,16 @@ export async function cloneRepo(args: {
       }`,
     );
   }
+  await simpleGit(args.destPath).raw([
+    "config",
+    "remote.origin.fetch",
+    "+refs/heads/*:refs/remotes/origin/*",
+  ]);
 }
 
-/**
- * Pull the latest commits in `repoPath`. Throws if the working tree has
- * uncommitted changes.
- */
-export async function pullRepo(args: { repoPath: string }): Promise<void> {
-  if (await hasUncommittedChanges({ repoPath: args.repoPath })) {
-    throw new Error(
-      `Cannot pull: ${args.repoPath} has uncommitted changes`,
-    );
-  }
-  await simpleGit(args.repoPath).pull();
-}
-
-/** Check out `branchName` in `repoPath`. */
-export async function switchBranch(args: {
-  repoPath: string;
-  branchName: string;
-}): Promise<void> {
-  await simpleGit(args.repoPath).checkout(args.branchName);
-}
-
-/** True if the working tree at `repoPath` has staged or unstaged changes. */
-export async function hasUncommittedChanges(args: {
-  repoPath: string;
-}): Promise<boolean> {
-  const status = await simpleGit(args.repoPath).status();
-  return !status.isClean();
+/** Fetch the latest refs from `origin` into the bare base repo at `repoPath`. */
+export async function fetchRepo(args: { repoPath: string }): Promise<void> {
+  await simpleGit(args.repoPath).fetch("origin");
 }
 
 /**
@@ -98,6 +82,14 @@ export async function addWorktree(args: {
       args.worktreePath,
       args.defaultBranch,
     ]);
+  }
+}
+
+function canonicalize(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
   }
 }
 
@@ -157,8 +149,11 @@ export async function getCurrentWorktreeInfo(args: {
 }): Promise<
   { orgName: string; repoName: string; branchName: string } | null
 > {
-  const worktreesRoot = `${args.deskHome}${sep}worktrees`;
-  const rel = relative(worktreesRoot, args.cwd);
+  // Canonicalize both paths so a deskHome under /tmp matches a cwd under
+  // /private/tmp on macOS (and similar symlink situations on other systems).
+  const worktreesRoot = canonicalize(`${args.deskHome}${sep}worktrees`);
+  const cwd = canonicalize(args.cwd);
+  const rel = relative(worktreesRoot, cwd);
   if (rel.startsWith("..") || rel === "" || rel.startsWith(sep)) {
     return null;
   }

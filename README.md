@@ -4,8 +4,9 @@ A set of scripts, tools and UI to help with my organisation.
 
 ## `desk` workspace manager
 
-`desk` is a personal CLI for managing git-based work — it clones/pulls repos,
-sets up worktrees per branch, and tracks tasks. See `docs/product/cli.md`.
+`desk` is a personal CLI for managing git-based work — it clones/fetches repos
+(as bare clones), sets up worktrees per branch, and tracks tasks. See
+`docs/product/cli.md`.
 
 ### Install (local development)
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { mkdtempSync, rmSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -9,10 +9,9 @@ import {
   addWorktree,
   cloneRepo,
   detectDefaultBranch,
+  fetchRepo,
   getCurrentWorktreeInfo,
-  hasUncommittedChanges,
   listRemoteBranches,
-  pullRepo,
   worktreeExists,
 } from "./git.ts";
 import { repoPath, worktreePath } from "./paths.ts";
@@ -32,7 +31,7 @@ afterEach(() => {
 });
 
 describe("cloneRepo", () => {
-  test("clones to the expected path", async () => {
+  test("clones as a bare repo at the expected path", async () => {
     const { remoteUrl, tmpRoot } = await makeBareRepo();
     tmpRoots.push(tmpRoot);
     const deskHome = makeDeskHome();
@@ -40,8 +39,11 @@ describe("cloneRepo", () => {
 
     await cloneRepo({ remoteUrl, destPath });
 
+    // Bare repo: contents live directly at destPath (HEAD, refs/, objects/)
+    // rather than under a .git subdir.
     expect(existsSync(destPath)).toBe(true);
-    expect(existsSync(join(destPath, ".git"))).toBe(true);
+    expect(existsSync(join(destPath, "HEAD"))).toBe(true);
+    expect(existsSync(join(destPath, ".git"))).toBe(false);
   });
 
   test("throws a descriptive error on a non-existent repo", async () => {
@@ -79,13 +81,23 @@ describe("detectDefaultBranch", () => {
   });
 });
 
-describe("pullRepo", () => {
-  test("fetches latest commits from origin", async () => {
+describe("fetchRepo", () => {
+  test("updates origin tracking refs with new commits from the remote", async () => {
     const { remoteUrl, tmpRoot, defaultBranch } = await makeBareRepo();
     tmpRoots.push(tmpRoot);
     const deskHome = makeDeskHome();
     const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
     await cloneRepo({ remoteUrl, destPath });
+
+    // Bare clones don't populate refs/remotes/origin/* — only refs/heads/*.
+    // The first fetch is what creates the origin tracking refs we then watch.
+    await fetchRepo({ repoPath: destPath });
+    const beforeSha = (
+      await simpleGit(destPath).raw([
+        "rev-parse",
+        `refs/remotes/origin/${defaultBranch}`,
+      ])
+    ).trim();
 
     await pushCommitToRemote({
       remoteUrl,
@@ -95,60 +107,15 @@ describe("pullRepo", () => {
       message: "add NEW",
     });
 
-    await pullRepo({ repoPath: destPath });
+    await fetchRepo({ repoPath: destPath });
 
-    expect(existsSync(join(destPath, "NEW.md"))).toBe(true);
-  });
-
-  test("throws if the working directory has uncommitted changes", async () => {
-    const { remoteUrl, tmpRoot } = await makeBareRepo();
-    tmpRoots.push(tmpRoot);
-    const deskHome = makeDeskHome();
-    const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
-    await cloneRepo({ remoteUrl, destPath });
-
-    await writeFile(join(destPath, "README.md"), "modified\n");
-
-    await expect(pullRepo({ repoPath: destPath })).rejects.toThrow(
-      /uncommitted changes/,
-    );
-  });
-});
-
-describe("hasUncommittedChanges", () => {
-  test("returns true for unstaged changes", async () => {
-    const { remoteUrl, tmpRoot } = await makeBareRepo();
-    tmpRoots.push(tmpRoot);
-    const deskHome = makeDeskHome();
-    const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
-    await cloneRepo({ remoteUrl, destPath });
-
-    await writeFile(join(destPath, "README.md"), "dirty\n");
-
-    expect(await hasUncommittedChanges({ repoPath: destPath })).toBe(true);
-  });
-
-  test("returns true for staged changes", async () => {
-    const { remoteUrl, tmpRoot } = await makeBareRepo();
-    tmpRoots.push(tmpRoot);
-    const deskHome = makeDeskHome();
-    const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
-    await cloneRepo({ remoteUrl, destPath });
-
-    await writeFile(join(destPath, "STAGED.md"), "staged\n");
-    await simpleGit(destPath).add("STAGED.md");
-
-    expect(await hasUncommittedChanges({ repoPath: destPath })).toBe(true);
-  });
-
-  test("returns false on a clean repo", async () => {
-    const { remoteUrl, tmpRoot } = await makeBareRepo();
-    tmpRoots.push(tmpRoot);
-    const deskHome = makeDeskHome();
-    const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
-    await cloneRepo({ remoteUrl, destPath });
-
-    expect(await hasUncommittedChanges({ repoPath: destPath })).toBe(false);
+    const afterSha = (
+      await simpleGit(destPath).raw([
+        "rev-parse",
+        `refs/remotes/origin/${defaultBranch}`,
+      ])
+    ).trim();
+    expect(afterSha).not.toBe(beforeSha);
   });
 });
 
@@ -247,6 +214,82 @@ describe("addWorktree", () => {
     });
 
     expect(existsSync(join(wt, "ONLY-ON-BRANCH.md"))).toBe(true);
+  });
+
+  test("checks out the default branch in a worktree", async () => {
+    // Regression: when the base is non-bare and has the default branch
+    // checked out, `git worktree add main main` fails. The base must be bare.
+    const { remoteUrl, tmpRoot, defaultBranch } = await makeBareRepo();
+    tmpRoots.push(tmpRoot);
+    const deskHome = makeDeskHome();
+    const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
+    await cloneRepo({ remoteUrl, destPath });
+
+    const wt = worktreePath({
+      deskHome,
+      orgName: "org",
+      repoName: "repo",
+      branchName: defaultBranch,
+    });
+    await addWorktree({
+      repoPath: destPath,
+      worktreePath: wt,
+      branchName: defaultBranch,
+      defaultBranch,
+    });
+
+    expect(existsSync(join(wt, "README.md"))).toBe(true);
+    const head = (
+      await simpleGit(wt).raw(["branch", "--show-current"])
+    ).trim();
+    expect(head).toBe(defaultBranch);
+  });
+
+  test("checks out a branch that exists only on origin after a fetch", async () => {
+    // After the initial bare clone, refs/heads/* mirrors what was on the
+    // remote at clone time. If a new branch is pushed to origin *after*
+    // we clone, only `refs/remotes/origin/<branch>` exists locally — and
+    // `git worktree add` must DWIM from it.
+    const { remoteUrl, tmpRoot, defaultBranch } = await makeBareRepo();
+    tmpRoots.push(tmpRoot);
+    const deskHome = makeDeskHome();
+    const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
+    await cloneRepo({ remoteUrl, destPath });
+
+    // Push a brand-new branch directly to the remote (the helper can't,
+    // since it tries to check out a branch that doesn't exist yet).
+    const seedPath = mkdtempSync(join(tmpdir(), "desk-test-seed-"));
+    tmpRoots.push(seedPath);
+    const seed = simpleGit(seedPath);
+    await seed.clone(remoteUrl, seedPath);
+    await seed.addConfig("user.email", "test@example.com");
+    await seed.addConfig("user.name", "Test");
+    await seed.checkoutBranch("remote-only", defaultBranch);
+    await writeFile(join(seedPath, "REMOTE-ONLY.md"), "remote only\n");
+    await seed.add("REMOTE-ONLY.md");
+    await seed.commit("remote-only branch");
+    await seed.push("origin", "remote-only");
+
+    await fetchRepo({ repoPath: destPath });
+
+    const wt = worktreePath({
+      deskHome,
+      orgName: "org",
+      repoName: "repo",
+      branchName: "remote-only",
+    });
+    await addWorktree({
+      repoPath: destPath,
+      worktreePath: wt,
+      branchName: "remote-only",
+      defaultBranch,
+    });
+
+    expect(existsSync(join(wt, "REMOTE-ONLY.md"))).toBe(true);
+    const head = (
+      await simpleGit(wt).raw(["branch", "--show-current"])
+    ).trim();
+    expect(head).toBe("remote-only");
   });
 
   test("creates a non-existent branch from the default branch", async () => {

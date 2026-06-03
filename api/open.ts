@@ -6,9 +6,8 @@ import {
   addWorktree,
   cloneRepo,
   detectDefaultBranch,
+  fetchRepo,
   getCurrentWorktreeInfo,
-  pullRepo,
-  switchBranch,
   worktreeExists,
 } from "./git.ts";
 import { parseRepoSlug, repoPath, worktreePath } from "./paths.ts";
@@ -58,13 +57,10 @@ export async function open(opts: OpenOptions): Promise<OpenResult> {
 
   if (!existsSync(basePath)) {
     await cloneRepo({ remoteUrl, destPath: basePath });
+  } else {
+    await fetchRepo({ repoPath: basePath });
   }
   const defaultBranch = await detectDefaultBranch({ repoPath: basePath });
-  // Make sure the base clone's HEAD is on the default branch before pulling
-  // — `git pull` only updates the currently checked-out branch.
-  await switchBranch({ repoPath: basePath, branchName: defaultBranch });
-  // pullRepo throws on dirty working tree with a clear message.
-  await pullRepo({ repoPath: basePath });
 
   const wt = worktreePath({
     deskHome: opts.deskHome,

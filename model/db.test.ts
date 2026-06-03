@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
-import { migrateDb } from "./db.ts";
+import { getDb } from "./db.ts";
 import { branches, repos, tasks } from "./schema.ts";
 
 let deskHome: string;
@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 test("migrate + insert/select round-trips rows across all tables", () => {
-  const db = migrateDb(deskHome);
+  const db = getDb(deskHome);
 
   db.insert(tasks)
     .values({ id: "CA-1", title: "Test task" })
@@ -65,7 +65,7 @@ test("migrate + insert/select round-trips rows across all tables", () => {
 });
 
 test("branches.taskId foreign key is enforced", () => {
-  const db = migrateDb(deskHome);
+  const db = getDb(deskHome);
 
   db.insert(repos)
     .values({

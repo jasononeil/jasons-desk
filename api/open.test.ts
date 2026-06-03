@@ -1,21 +1,20 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { and, eq } from "drizzle-orm";
-import { getDb, migrateDb } from "../model/db.ts";
+import { getDb } from "../model/db.ts";
 import { branches, repos, tasks } from "../model/schema.ts";
 import { makeBareRepo, pushCommitToRemote } from "./git.testutil.ts";
 import { open } from "./open.ts";
-import { repoPath, worktreePath } from "./paths.ts";
+import { worktreePath } from "./paths.ts";
 
 let tmpRoots: string[] = [];
 
 function makeDeskHome(): string {
   const path = mkdtempSync(join(tmpdir(), "desk-home-"));
   tmpRoots.push(path);
-  migrateDb(path);
+  getDb(path);
   return path;
 }
 
@@ -232,33 +231,6 @@ describe("open", () => {
     });
   });
 
-  test("dirty working directory on re-open throws", async () => {
-    const { remoteUrl, tmpRoot } = await makeBareRepo();
-    tmpRoots.push(tmpRoot);
-    const deskHome = makeDeskHome();
-
-    await open({
-      deskHome,
-      repoSlug: "org/repo",
-      branchName: "topic",
-      remoteUrl,
-      cwd: tmpRoot,
-    });
-
-    const basePath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
-    await writeFile(join(basePath, "README.md"), "dirty\n");
-
-    await expect(
-      open({
-        deskHome,
-        repoSlug: "org/repo",
-        branchName: "topic",
-        remoteUrl,
-        cwd: tmpRoot,
-      }),
-    ).rejects.toThrow(/uncommitted changes/);
-  });
-
   test("prints 'Leaving worktree' notice when called from inside a worktree", async () => {
     const { remoteUrl, tmpRoot } = await makeBareRepo();
     tmpRoots.push(tmpRoot);
@@ -285,6 +257,24 @@ describe("open", () => {
         (n) => n.includes("Leaving worktree") && n.includes("feature/foo"),
       ),
     ).toBe(true);
+  });
+
+  test("opens the default branch into a worktree", async () => {
+    // Regression: the most common case — opening the default branch — used
+    // to fail because the base clone had it checked out.
+    const { remoteUrl, tmpRoot, defaultBranch } = await makeBareRepo();
+    tmpRoots.push(tmpRoot);
+    const deskHome = makeDeskHome();
+
+    const result = await open({
+      deskHome,
+      repoSlug: "org/repo",
+      branchName: defaultBranch,
+      remoteUrl,
+      cwd: tmpRoot,
+    });
+
+    expect(existsSync(join(result.worktreePath, "README.md"))).toBe(true);
   });
 
   test("non-existent branch is created from the default branch", async () => {
