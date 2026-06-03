@@ -25,4 +25,4 @@ Commit changes as you tick off each checklist item.
 - [x] **7. `api/list.ts`** — Read-only queries over the data the previous steps produce.
 - [x] **8. CLI layer — `cli/`** — Wire `citty` commands to the api functions, add `@inquirer/prompts` for interactive selectors. Kept thin.
 - [x] **9. Test it** - actually run the CLI commands and ensure they work. You can test with repos `jasononeil/jasons-desk` and `jasononeil/perth-web-devs-meetup`. Make sure it works correctly. Add new steps to iterate if needed.
-- [ ] **10. Shell integration** — `desk-cli shell-init [zsh|fish|bash]` printing the wrapper snippet, plus README install instructions. Last because it only matters once `desk open` actually returns a path to `cd` into.
+- [x] **10. Shell integration** — `desk-cli shell-init [zsh|fish|bash]` printing the wrapper snippet, plus README install instructions. Last because it only matters once `desk open` actually returns a path to `cd` into.

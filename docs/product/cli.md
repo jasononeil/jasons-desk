@@ -38,6 +38,19 @@ desk list branches
 
 Visualises current work across repos, branches, and tasks. Branches without a task are surfaced as orphaned — a nudge to either link them or clean them up.
 
+### Shell integration
+
+```
+desk-cli shell-init [bash|zsh|fish]
+```
+
+The real binary is `desk-cli`; a shell function named `desk` wraps it so that
+`desk open` can `cd` into the resulting worktree (the parent process can't
+change the caller's directory, so the wrapper captures stdout and `cd`s itself).
+Other subcommands pass straight through.
+
+Install once by sourcing the output from your shell rc file (see README).
+
 ## Values
 
 - **Visible WIP** - makes it easy to see what's in flight and what's been forgotten

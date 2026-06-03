@@ -2,6 +2,7 @@
 import { defineCommand, runMain } from "citty";
 import { listCommand } from "./list.ts";
 import { openCommand } from "./open.ts";
+import { shellInitCommand } from "./shell-init.ts";
 import { taskCommand } from "./task.ts";
 
 export const main = defineCommand({
@@ -13,6 +14,7 @@ export const main = defineCommand({
     open: openCommand,
     task: taskCommand,
     list: listCommand,
+    "shell-init": shellInitCommand,
   },
 });
 

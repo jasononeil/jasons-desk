@@ -11,7 +11,8 @@ A set of scripts, tools and UI to help with my organisation.
 ### Install (local development)
 
 The real binary is `desk-cli`. A thin shell wrapper named `desk` captures the
-output of `desk open` and `cd`s into the resulting worktree.
+output of `desk open` and `cd`s into the resulting worktree; everything else
+passes through unchanged.
 
 ```sh
 # Inside the repo
@@ -19,8 +20,23 @@ bun install
 bun link              # exposes `desk-cli` globally via the `bin` field in package.json
 ```
 
-Then add the shell wrapper to your shell config (full instructions land with
-step 10 of the plan — `desk-cli shell-init [zsh|fish|bash]`).
+Then add the wrapper to your shell config so plain `desk` works:
+
+```sh
+# zsh (~/.zshrc)
+eval "$(desk-cli shell-init zsh)"
+
+# bash (~/.bashrc)
+eval "$(desk-cli shell-init bash)"
+```
+
+```fish
+# fish (~/.config/fish/config.fish)
+desk-cli shell-init fish | source
+```
+
+Reload your shell (or `source` the config file) and `desk open <org>/<repo> <branch>`
+will leave you in the worktree.
 
 ### Scripts
 
