@@ -15,7 +15,7 @@
 - We use Bun instead of Node.js. See `docs/tech/bun.md`
 - We use Devbox for installing tooling. See `devbox.json`
 - We can use MCP tools in scripts using MCPorter. See `docs/tech/mcporter.md`
-- We use SQLite via `import { SQL } from "bun"` with hand-rolled migrations. See `docs/tech/sqlite.md`
+- We use SQLite via Drizzle ORM (with Bun SQL). See `docs/tech/drizzle.md`
 - Data model (tables, enums, relationships) is documented in `docs/tech/data-model.md`
 - CLI parsing uses `citty`
 - Interactive prompts use `@inquirer/prompts`
@@ -31,8 +31,8 @@ Repo layout:
 
 - `cli/` - modules related to CLI command parsing and interactions (kept thin, minimal tests)
 - `api/` - business logic as function modules. (Used in CLI. We may support web or native UI one day.)
-- `model/` - utilities for interacting with our SQLite database
-- `migrations/` - numbered `.sql` migration files (see `docs/tech/sqlite.md`)
+- `model/` - Drizzle schema definitions and db instance (used by `api/`)
+- `migrations/` - Drizzle-generated migration files (`drizzle-kit generate`)
 
 ## Tests
 

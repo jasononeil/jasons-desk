@@ -1,6 +1,8 @@
 # Data model
 
-All data is stored in SQLite at `$DESK_HOME/desk.db` (default: `~/desk/desk.db`). See `docs/tech/sqlite.md` for the migration approach.
+All data is stored in SQLite at `$DESK_HOME/desk.db` (default: `~/desk/desk.db`). See `docs/tech/drizzle.md` for the migration approach.
+
+Schema is defined in `model/schema.ts`.
 
 ## Tables
 
@@ -8,31 +10,35 @@ All data is stored in SQLite at `$DESK_HOME/desk.db` (default: `~/desk/desk.db`)
 
 Tracks every git repository that has been opened with `desk open`.
 
-| Column          | Type | Notes                                              |
-| --------------- | ---- | -------------------------------------------------- |
-| `orgName`       | TEXT | GitHub org or user (e.g. `my-org`)             |
-| `repoName`      | TEXT | Repository name (e.g. `my-app`)                    |
-| `defaultBranch` | TEXT | Detected via `git ls-remote --symref origin HEAD`  |
-| `lastOpened`    | TEXT | ISO 8601 timestamp, updated on each `desk open`    |
+```ts
+export const repos = sqliteTable("repos", {
+  orgName: text("orgName").notNull(),
+  repoName: text("repoName").notNull(),
+  defaultBranch: text("defaultBranch").notNull(),
+  lastOpened: text("lastOpened").notNull(), // ISO 8601, updated on each `desk open`
+}, t => [primaryKey({ columns: [t.orgName, t.repoName] })]);
+```
 
-Primary key: `(orgName, repoName)`
-
-The combination `orgName/repoName` is referred to as a **`repoSlug`** throughout the codebase.
+The combined `orgName/repoName` string is referred to as a **`repoSlug`** in CLI-facing code and user-visible output, but is always stored as two separate columns.
 
 ---
 
 ### `branches`
 
-Tracks every worktree that has been set up. One row per `(repoSlug, branchName)`.
+Tracks every worktree that has been set up. One row per `(orgName, repoName, branchName)`.
 
-| Column       | Type | Notes                                                        |
-| ------------ | ---- | ------------------------------------------------------------ |
-| `repoSlug`   | TEXT | Foreign key → `repos(orgName, repoName)` as `org/repo`       |
-| `branchName` | TEXT | Git branch name (e.g. `feature/my-thing`)                    |
-| `lastOpened` | TEXT | ISO 8601 timestamp, updated on each `desk open`              |
-| `taskId`     | TEXT | Nullable. Foreign key → `tasks(id)`. Set via `--task` flag or `desk task --this-branch` |
-
-Primary key: `(repoSlug, branchName)`
+```ts
+export const branches = sqliteTable("branches", {
+  orgName: text("orgName").notNull(),
+  repoName: text("repoName").notNull(),
+  branchName: text("branchName").notNull(),
+  lastOpened: text("lastOpened").notNull(), // ISO 8601, updated on each `desk open`
+  taskId: text("taskId").references(() => tasks.id), // nullable
+}, t => [
+  primaryKey({ columns: [t.orgName, t.repoName, t.branchName] }),
+  foreignKey({ columns: [t.orgName, t.repoName], foreignColumns: [repos.orgName, repos.repoName] }),
+]);
+```
 
 Branches without a `taskId` are considered **orphaned** and surfaced separately in `desk list branches --orphaned`.
 
@@ -45,14 +51,14 @@ where slashes in `branchName` are replaced with `-` (e.g. `feature/my-thing` →
 
 Tracks units of work, typically corresponding to a Jira ticket or similar external issue.
 
-| Column        | Type | Notes                                             |
-| ------------- | ---- | ------------------------------------------------- |
-| `id`          | TEXT | User-provided, required (e.g. `CA-1234`)          |
-| `title`       | TEXT | Short description                                 |
-| `description` | TEXT | Longer notes                                      |
-| `status`      | TEXT | One of the `Status` enum values (see below)       |
-
-Primary key: `id`
+```ts
+export const tasks = sqliteTable("tasks", {
+  id: text("id").primaryKey(),            // user-provided, e.g. "CA-1234"
+  title: text("title").notNull().default(""),
+  description: text("description").notNull().default(""),
+  status: text("status").notNull().default("Backlog"), // see Status enum
+});
+```
 
 A task can span multiple branches across multiple repos.
 
@@ -64,14 +70,14 @@ A task can span multiple branches across multiple repos.
 
 Stored as a TEXT column on `tasks`. Validated in application code.
 
-| Value        | Meaning                                      |
-| ------------ | -------------------------------------------- |
-| `Backlog`    | Not yet started                              |
-| `InProgress` | Actively being worked on                     |
-| `InReview`   | Work done, waiting on review or feedback     |
-| `Blocked`    | Cannot proceed, waiting on something else    |
-| `Done`       | Completed                                    |
-| `Abandoned`  | No longer being pursued                      |
+| Value        | Meaning                                   |
+| ------------ | ----------------------------------------- |
+| `Backlog`    | Not yet started                           |
+| `InProgress` | Actively being worked on                  |
+| `InReview`   | Work done, waiting on review or feedback  |
+| `Blocked`    | Cannot proceed, waiting on something else |
+| `Done`       | Completed                                 |
+| `Abandoned`  | No longer being pursued                   |
 
 ---
 

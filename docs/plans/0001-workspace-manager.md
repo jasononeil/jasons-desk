@@ -73,7 +73,17 @@ A CLI tool written in Bun that has these commands:
 - `--this-branch` add this branch to the task
 - `--status` set the status
 
-### SQLite
+### SQLite (via Drizzle)
+
+Schema is defined in `model/schema.ts` using Drizzle's schema API and applied via `drizzle-kit`. The Drizzle client is initialised with Bun SQL:
+
+```ts
+import { drizzle } from "drizzle-orm/bun-sql";
+import { SQL } from "bun";
+
+const client = new SQL(`sqlite://${deskHome}/desk.db`);
+export const db = drizzle({ client });
+```
 
 `repos`
 
@@ -84,7 +94,8 @@ A CLI tool written in Bun that has these commands:
 
 `branches`
 
-- repoSlug: string [orgName/repoName]
+- orgName: string
+- repoName: string
 - branchName: string
 - lastOpened: date
 - taskId: string (nullable)
@@ -102,8 +113,8 @@ A CLI tool written in Bun that has these commands:
 
 - `cli/` - modules related to CLI command parsing and interactions (kept thin, minimal tests)
 - `api/` - business logic as function modules. We may support web or native UI one day.
-- `model/` - utilities for interacting with our SQLite database
-- `migrations/` - numbered `.sql` migration files (see `docs/tech/sqlite.md`)
+- `model/` - Drizzle schema definitions and db instance (used by `api/`)
+- `migrations/` - Drizzle-generated migration files (`drizzle-kit generate`)
 
 ## Implementation details
 
@@ -165,6 +176,7 @@ All git commands are run via `Bun.spawn` (shell out to system git), wrapped behi
 
 ### Testing
 
+- `model/` - kept thin, rely on Drizzle for queries, not heavily tested
 - `cli/` — kept thin, not heavily tested
 - `api/` — unit tests for pure logic, integration tests for anything touching SQLite or the filesystem
 - Tests use `DESK_HOME` pointed at a temp directory for isolation
@@ -173,3 +185,77 @@ All git commands are run via `Bun.spawn` (shell out to system git), wrapped behi
 
 - Garbage collection (`desk gc`) based on `lastOpened`
 - Launching processes (shell, editor, agent, agent-in-sandbox) from a worktree
+
+---
+
+## Test Cases
+
+### Path / utility helpers (e.g. `api/paths.ts`)
+
+- **`sanitizeBranchName` replaces `/` with `-`** — `"feature/my-thing"` → `"feature-my-thing"`.
+- **`sanitizeBranchName` handles multiple slashes** — `"a/b/c"` → `"a-b-c"`.
+- **`sanitizeBranchName` is a no-op for names without slashes** — `"main"` → `"main"`.
+- **`worktreePath` constructs the correct absolute path** — Given `{ deskHome, orgName, repoName, branchName: "feature/foo" }`, returns `$DESK_HOME/worktrees/org/repo/feature-foo`.
+- **`repoPath` constructs the correct absolute path** — Given `{ deskHome, orgName, repoName }`, returns `$DESK_HOME/repos/org/repo`.
+- **`parseRepoSlug` splits `"org/repo"` into `{ orgName, repoName }`** — Correct parsing of the standard format.
+- **`parseRepoSlug` throws on a slug with no `/`** — A bare string like `"myrepo"` is rejected with a clear error.
+- **`parseRepoSlug` throws on a slug with more than one `/`** — `"org/repo/extra"` is rejected.
+
+### `api/git.ts`
+
+Integration tests using a local bare git repo to avoid network calls.
+If private utility functions are needed for setting up the local git repo to avoid excessive boilerplate in test cases, do it. (Once boilerplate exists 3+ times, make a utility function for it. Doesn't need to be exported or separately tested).
+
+- **`cloneRepo` clones to the expected path** — Given `orgName/repoName`, the repo ends up at `$DESK_HOME/repos/[org]/[repo]` and is a valid git repository.
+- **`cloneRepo` throws a descriptive error on a non-existent repo** — SSH clone failure surfaces a clear error rather than crashing silently.
+- **`detectDefaultBranch` returns the correct branch name** — Given a local test repo with HEAD pointing to `main`, returns `"main"`.
+- **`detectDefaultBranch` returns the correct branch name** — Given a local test repo with HEAD pointing to `master`, returns `"master"`.
+- **`pullRepo` fetches latest commits** — After a commit is added to the remote, `pullRepo` makes it locally visible.
+- **`pullRepo` throws if the working directory has uncommitted changes** — Dirty working tree results in a clear error.
+- **`hasUncommittedChanges` returns `true` for staged and unstaged changes** — Covers both scenarios independently.
+- **`hasUncommittedChanges` returns `false` on a clean repo** — No false positives on a freshly cloned, unmodified repo.
+- **`addWorktree` creates the worktree directory at the expected path** — `$DESK_HOME/worktrees/[org]/[repo]/[sanitized-branch]/` exists and is a valid git worktree.
+- **`addWorktree` with a branch containing `/` sanitizes the path** — `feature/my-thing` produces directory `feature-my-thing`, not a nested subdirectory.
+- **`addWorktree` for an existing remote branch checks it out correctly** — An already-present branch is checked out rather than creating a new one.
+- **`addWorktree` for a non-existent branch creates it from the default branch** — New branch is created locally and the worktree is set up from it.
+- **`worktreeExists` returns `true` when the path is already set up** — Correctly detects an existing worktree directory.
+- **`worktreeExists` returns `false` when no worktree has been created yet** — No false positives.
+- **`listRemoteBranches` returns all remote branch names** — Used to populate the interactive branch selector.
+- **`getCurrentWorktreeInfo` returns `null` when not inside a desk-managed worktree** — Called from an unrelated directory, does not throw.
+- **`getCurrentWorktreeInfo` returns `{ orgName, repoName, branchName }` from inside a worktree** — Correctly parses path components when `$PWD` is a managed worktree path.
+
+### `api/open.ts`
+
+Integration tests using a temp `DESK_HOME` and a local bare git repo.
+
+- **Full happy path: new repo, new branch** — Calling `open("org/repo", "feature/foo")` clones the repo, creates the worktree, inserts rows in `repos` and `branches`, and returns the expected worktree path.
+- **Re-opening an existing worktree** — Calling `open` again for the same `(repoSlug, branch)` returns the same path without error, and updates `lastOpened` in both `repos` and `branches`.
+- **`--task` flag links the branch to the task** — After `open("org/repo", "branch", { taskId: "CA-1234" })`, the `branches` row has `taskId = "CA-1234"`.
+- **`--task` flag creates the task if it does not yet exist** — Row is created in `tasks` with `Backlog` status without requiring a prior `desk task` call.
+- **Dirty working directory on re-open throws** — Uncommitted changes in the base repo clone surfaces a clear error and does not proceed.
+- **Prints "Leaving worktree" notice when called from inside a worktree** — When `$PWD` is a managed worktree path, the notice message is included in output.
+- **Branch already checked out in another worktree** — Prints a notice and returns the existing worktree path rather than attempting a second `git worktree add`.
+- **Non-existent branch is created from default branch** — Worktree is set up from the default branch head.
+- **Two repos with same `repoName` but different `orgName` stored at distinct paths** — No collision between `acme/myapp` and `other/myapp`.
+
+### `api/task.ts`
+
+- **Creating a new task sets status to `"InProgress"`** — Calling `openTask("CA-1234")` inserts a new task with `status: "InProgress"`.
+- **Opening an existing `Backlog` task transitions it to `"InProgress"`** — Pre-existing task in `Backlog` status is updated.
+- **Opening an already `InProgress` task is a no-op on status** — Does not error; status remains `"InProgress"`.
+- **`--title` updates the task's title** — Correctly persists the new title.
+- **`--description` updates the task's description** — Correctly persists the new description.
+- **`--this-branch` links the current branch to the task** — When `$PWD` resolves to a managed worktree, the corresponding `branches` row is updated with the `taskId`.
+- **`--this-branch` outside a managed worktree returns a clear error** — Does not silently fail or create a dangling link.
+- **`--status` sets the task to any valid `Status` value** — All six enum values can be set.
+- **`--status` with an invalid value returns a validation error** — Unrecognized strings are rejected before any database write.
+- **`taskId` is required — omitting it errors** — Returns a useful message when no ID is provided.
+
+### `api/list.ts`
+
+- **`listTasks` returns tasks with nested branches** — Each task entry includes its associated `branches` array; tasks with no branches show an empty array.
+- **`listRepos` returns repos with nested branches** — Each repo entry includes branches, each annotated with `taskId` (or `null`).
+- **`listBranches` groups branches by task** — Branches with the same `taskId` appear under that task's group.
+- **`listBranches` includes an "orphaned" group for `taskId: null` branches** — Correctly separated from task-linked branches.
+- **`listBranches --orphaned` returns only branches with no task** — Branches with a task are excluded.
+- **All list functions return empty structures gracefully on an empty database** — No throws, no crashes.
