@@ -128,6 +128,8 @@ The real binary is called `desk-cli`. A shell function named `desk` wraps it, ca
 
 Install via `desk-cli shell-init [zsh|fish|bash]` which prints the shell snippet to stdout. Add the appropriate `eval` line to your shell config once.
 
+`desk-cli` itself is exposed via the `bin` field in `package.json` pointing at `cli/index.ts` (shebang `#!/usr/bin/env bun`). `bun link` symlinks it onto PATH for local dev — no `bun build` step, since Bun runs `.ts` directly. Revisit if we ever want a standalone binary (`bun build --compile`).
+
 See README for the exact symlink and shell setup instructions.
 
 ### Paths and configuration

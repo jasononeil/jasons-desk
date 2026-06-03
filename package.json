@@ -1,15 +1,28 @@
 {
   "name": "jasons-desk",
-  "module": "index.ts",
+  "module": "cli/index.ts",
   "type": "module",
   "private": true,
+  "bin": {
+    "desk-cli": "./cli/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "verify": "bun tsc && bun test",
+    "db:generate": "bunx drizzle-kit generate"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.31.10"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "mcporter": "^0.10.2"
+    "@inquirer/prompts": "^8.5.2",
+    "citty": "^0.2.2",
+    "drizzle-orm": "^0.45.2",
+    "mcporter": "^0.10.2",
+    "simple-git": "^3.36.0"
   }
 }
