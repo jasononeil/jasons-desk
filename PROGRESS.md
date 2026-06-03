@@ -17,7 +17,7 @@ After completing a checklist item:
 Commit changes as you tick off each checklist item.
 
 - [x] **1. Project scaffolding & dependencies** — `bun init`, install `drizzle-orm`, `drizzle-kit`, `simple-git`, `citty`, `@inquirer/prompts`. Add scripts (`verify`, `test`, `db:generate`). Decide binary entrypoint (`desk-cli`) and how `bun build` / symlinking will work, since the shell wrapper depends on it. Get `bun test` runnable.
-- [ ] **2. Pure helpers — `api/paths.ts`** — `sanitizeBranchName`, `worktreePath`, `repoPath`, `parseRepoSlug`. Unit tests per the test cases above. Establishes the test feedback loop before anything with I/O.
+- [x] **2. Pure helpers — `api/paths.ts`** — `sanitizeBranchName`, `worktreePath`, `repoPath`, `parseRepoSlug`. Unit tests per the test cases above. Establishes the test feedback loop before anything with I/O.
 - [ ] **3. Database — `model/schema.ts` + first migration** — Define `repos`, `branches`, `tasks` + `Status` enum. Wire up `drizzle({ client: new SQL(...) })` with `DESK_HOME` resolution. Generate first migration via `drizzle-kit`. Smoke test: insert/select in a temp dir.
 - [ ] **4. Git wrapper — `api/git.ts`** — Biggest unknown, so do it next. Smoke-test `simple-git` under Bun first. Build the local-bare-repo test helper here (reused by `open.ts`). Implement clone, pull, default-branch detection, worktree add, branch listing, `getCurrentWorktreeInfo`.
 - [ ] **5. `api/task.ts`** — Smaller surface than `open.ts` and only touches the DB. Good warm-up for combining schema + business logic.
