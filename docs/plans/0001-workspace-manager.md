@@ -79,13 +79,13 @@ A CLI tool written in Bun that has these commands:
 
 ### SQLite (via Drizzle)
 
-Schema is defined in `model/schema.ts` using Drizzle's schema API and applied via `drizzle-kit`. The Drizzle client is initialised with Bun SQL:
+Schema is defined in `model/schema.ts` using Drizzle's schema API and applied via `drizzle-kit`. The Drizzle client uses `bun:sqlite`:
 
 ```ts
-import { drizzle } from "drizzle-orm/bun-sql";
-import { SQL } from "bun";
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 
-const client = new SQL(`sqlite://${deskHome}/desk.db`);
+const client = new Database(`${deskHome}/desk.db`);
 export const db = drizzle({ client });
 ```
 

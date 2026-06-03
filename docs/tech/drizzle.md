@@ -1,18 +1,20 @@
 # Drizzle ORM
 
-We use [Drizzle ORM](https://orm.drizzle.team) with Bun SQL for SQLite access.
+We use [Drizzle ORM](https://orm.drizzle.team) with `bun:sqlite` for SQLite access.
 
 ## Setup
 
 ```ts
-import { drizzle } from "drizzle-orm/bun-sql";
-import { SQL } from "bun";
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
 
-const client = new SQL(`sqlite://${deskHome}/desk.db`);
+const client = new Database(`${deskHome}/desk.db`);
 export const db = drizzle({ client });
 ```
 
 The database path is derived from `DESK_HOME` (defaults to `~/desk/`). This makes it easy to point tests at a temp directory.
+
+The `drizzle-orm/bun-sql` adapter is hardcoded to Postgres dialect; only `bun-sqlite` works for SQLite.
 
 ## Schema
 
