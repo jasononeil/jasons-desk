@@ -1,5 +1,9 @@
 # Workspace manager
 
+This plan describes setting up a workspace manager in this "Jason's Desk" project.
+
+As the plan is implemented it will no doubt need to evolve. Please update this document as needed throughout implementation.
+
 ## What we're doing
 
 ### The status quo
@@ -172,7 +176,11 @@ List commands render output as a tree (`├──` / `└──` style) with col
 
 ### Git operations
 
-All git commands are run via `Bun.spawn` (shell out to system git), wrapped behind a stable interface in `api/git.ts`. This keeps callers insulated from the implementation — if a GUI or alternative git backend is added later, only `api/git.ts` changes.
+All git commands go through a stable interface in `api/git.ts` so callers are insulated from the implementation — if a GUI or alternative git backend is added later, only `api/git.ts` changes.
+
+Default implementation: `simple-git`. It wraps the system `git` binary with a typed, promise-based API, which removes a lot of stdout-parsing and exit-code-classifying boilerplate we'd otherwise write by hand. Operations without first-class methods (notably `git worktree ...` and `git ls-remote --symref origin HEAD` for default-branch detection) drop down to `.raw([...])`.
+
+If `simple-git` turns out to have Bun compatibility issues or doesn't cover something we need, falling back to `Bun.spawn` is a contained change behind the same interface.
 
 ### Testing
 
