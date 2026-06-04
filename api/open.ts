@@ -119,6 +119,14 @@ export async function open(opts: OpenOptions): Promise<OpenResult> {
     stepDone(`Worktree ready: ${opts.branchName}`);
   }
 
+  // Allow direnv for the worktree so the shell doesn't prompt on entry.
+  // Silently skip if direnv is not installed.
+  try {
+    await Bun.$`direnv allow ${wt}`.quiet();
+  } catch {
+    // direnv not installed or not applicable — ignore
+  }
+
   const db = getDb(opts.deskHome);
   const now = new Date().toISOString();
 

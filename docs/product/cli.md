@@ -19,6 +19,7 @@ The primary interaction. Given a repo and branch, `desk` ensures the repo is clo
 - Creates the branch from the default if it doesn't exist yet
 - Idempotent — re-running takes you back to an existing worktree
 - Notifies you when you're leaving an existing worktree
+- Runs `direnv allow` on the worktree path if direnv is installed, so the shell doesn't prompt on entry
 
 ### Tracking tasks
 
