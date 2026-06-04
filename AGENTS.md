@@ -43,3 +43,9 @@ Tests are written using `bun:test`.
 - `cli/` — kept thin, no tests needed
 - `api/` — unit tests for pure logic, integration tests for anything touching SQLite or the filesystem
 - Tests use `DESK_HOME` pointed at a temp directory for isolation
+
+## Running locally
+
+To try local changes without recompiling, run `devbox run cli <args>` from the repo.
+
+The `desk-cli` on the path is a compiled version and may not be up-to-date with the current source code.

@@ -7,7 +7,9 @@
   "shell": {
     "init_hook": ["test -e .envrc.private || cp .envrc.example .envrc.private"],
     "scripts": {
-      "verify": "bun tsc && bun test"
+      "verify": "bun install && bun tsc && bun test",
+      "cli": "bun install && bun cli",
+      "install-on-system": "mkdir -p ~/.local/bin && bun build --compile --outfile ~/.local/bin/desk-cli ./cli/index.ts"
     }
   }
 }

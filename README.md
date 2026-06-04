@@ -17,8 +17,11 @@ passes through unchanged.
 ```sh
 # Inside the repo
 bun install
-bun link              # exposes `desk-cli` globally via the `bin` field in package.json
+devbox run install-on-system   # compiles `desk-cli` to ~/.local/bin via `bun build --compile`
 ```
+
+(`~/.local/bin` needs to be on your `PATH`. Re-run the install command any time
+you want to pick up local changes.)
 
 Then add the wrapper to your shell config so plain `desk` works:
 
@@ -37,6 +40,11 @@ desk-cli shell-init fish | source
 
 Reload your shell (or `source` the config file) and `desk open <org>/<repo> <branch>`
 will leave you in the worktree.
+
+### Development
+
+To try local changes without recompiling, run `devbox run cli <args>` from the repo
+— Bun executes `cli/index.ts` directly.
 
 ### Scripts
 
