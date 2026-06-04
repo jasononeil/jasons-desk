@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import { open } from "../api/open.ts";
 import { parseRepoSlug } from "../api/paths.ts";
 import { resolveDeskHome } from "../model/db.ts";
+import { createProgressRenderer } from "./progress.ts";
 import { promptBranchName, promptRepoSlug } from "./prompts.ts";
 
 export const openCommand = defineCommand({
@@ -33,17 +34,19 @@ export const openCommand = defineCommand({
       args.branch ??
       (await promptBranchName({ deskHome, orgName, repoName }));
 
-    const result = await open({
-      deskHome,
-      repoSlug,
-      branchName,
-      taskId: args.task,
-    });
-
-    for (const notice of result.notices) {
-      console.error(notice);
+    const renderer = createProgressRenderer(process.stderr);
+    try {
+      const result = await open({
+        deskHome,
+        repoSlug,
+        branchName,
+        taskId: args.task,
+        onProgress: renderer.emit,
+      });
+      // stdout = the path the shell wrapper will `cd` into.
+      console.log(result.worktreePath);
+    } finally {
+      renderer.finalize();
     }
-    // stdout = the path the shell wrapper will `cd` into.
-    console.log(result.worktreePath);
   },
 });

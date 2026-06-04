@@ -8,9 +8,18 @@ import {
   detectDefaultBranch,
   fetchRepo,
   getCurrentWorktreeInfo,
+  type GitProgressEvent,
   worktreeExists,
 } from "./git.ts";
 import { parseRepoSlug, repoPath, worktreePath } from "./paths.ts";
+
+export type ProgressEvent =
+  | { kind: "step-start"; label: string }
+  | { kind: "step-done"; label: string }
+  | { kind: "notice"; message: string }
+  | ({ kind: "git" } & GitProgressEvent);
+
+export type ProgressCallback = (event: ProgressEvent) => void;
 
 export type OpenOptions = {
   deskHome: string;
@@ -21,6 +30,8 @@ export type OpenOptions = {
   remoteUrl?: string;
   /** Used to detect whether we're leaving an existing worktree. */
   cwd?: string;
+  /** Receives live progress events; notices are also returned in the result. */
+  onProgress?: ProgressCallback;
 };
 
 export type OpenResult = {
@@ -40,6 +51,19 @@ function defaultRemoteUrl(orgName: string, repoName: string): string {
 export async function open(opts: OpenOptions): Promise<OpenResult> {
   const { orgName, repoName } = parseRepoSlug(opts.repoSlug);
   const notices: string[] = [];
+  const slug = `${orgName}/${repoName}`;
+
+  const notify = (message: string) => {
+    notices.push(message);
+    opts.onProgress?.({ kind: "notice", message });
+  };
+  const stepStart = (label: string) =>
+    opts.onProgress?.({ kind: "step-start", label });
+  const stepDone = (label: string) =>
+    opts.onProgress?.({ kind: "step-done", label });
+  const forwardGit = opts.onProgress
+    ? (e: GitProgressEvent) => opts.onProgress!({ kind: "git", ...e })
+    : undefined;
 
   const cwd = opts.cwd ?? process.cwd();
   const currentInfo = await getCurrentWorktreeInfo({
@@ -47,7 +71,7 @@ export async function open(opts: OpenOptions): Promise<OpenResult> {
     cwd,
   });
   if (currentInfo) {
-    notices.push(
+    notify(
       `Leaving worktree ${currentInfo.orgName}/${currentInfo.repoName}/${currentInfo.branchName}`,
     );
   }
@@ -56,9 +80,17 @@ export async function open(opts: OpenOptions): Promise<OpenResult> {
   const remoteUrl = opts.remoteUrl ?? defaultRemoteUrl(orgName, repoName);
 
   if (!existsSync(basePath)) {
-    await cloneRepo({ remoteUrl, destPath: basePath });
+    stepStart(`Cloning ${slug}`);
+    await cloneRepo({
+      remoteUrl,
+      destPath: basePath,
+      onProgress: forwardGit,
+    });
+    stepDone(`Cloned ${slug}`);
   } else {
-    await fetchRepo({ repoPath: basePath });
+    stepStart(`Fetching ${slug}`);
+    await fetchRepo({ repoPath: basePath, onProgress: forwardGit });
+    stepDone(`Fetched ${slug}`);
   }
   const defaultBranch = await detectDefaultBranch({ repoPath: basePath });
 
@@ -73,16 +105,18 @@ export async function open(opts: OpenOptions): Promise<OpenResult> {
   // already checked out in another worktree" collapses into the same check:
   // if the path exists, we just reuse it.
   if (await worktreeExists({ worktreePath: wt })) {
-    notices.push(
-      `Worktree already exists, opening existing: ${orgName}/${repoName}/${opts.branchName}`,
+    notify(
+      `Worktree already exists, opening existing: ${slug}/${opts.branchName}`,
     );
   } else {
+    stepStart(`Setting up worktree ${opts.branchName}`);
     await addWorktree({
       repoPath: basePath,
       worktreePath: wt,
       branchName: opts.branchName,
       defaultBranch,
     });
+    stepDone(`Worktree ready: ${opts.branchName}`);
   }
 
   const db = getDb(opts.deskHome);

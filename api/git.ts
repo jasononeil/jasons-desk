@@ -3,6 +3,16 @@ import { mkdir } from "node:fs/promises";
 import { dirname, relative, sep } from "node:path";
 import { simpleGit, type SimpleGit } from "simple-git";
 
+export type GitProgressEvent = {
+  method: string;
+  stage: string;
+  progress: number;
+  processed: number;
+  total: number;
+};
+
+export type GitProgressCallback = (event: GitProgressEvent) => void;
+
 /**
  * Clone a remote into `destPath` as a bare repository. The base clone never
  * has a checked-out branch so any branch — including the default — can be
@@ -13,10 +23,15 @@ import { simpleGit, type SimpleGit } from "simple-git";
 export async function cloneRepo(args: {
   remoteUrl: string;
   destPath: string;
+  onProgress?: GitProgressCallback;
 }): Promise<void> {
   await mkdir(dirname(args.destPath), { recursive: true });
   try {
-    await simpleGit().clone(args.remoteUrl, args.destPath, ["--bare"]);
+    await simpleGit({ progress: args.onProgress }).clone(
+      args.remoteUrl,
+      args.destPath,
+      ["--bare"],
+    );
   } catch (err) {
     throw new Error(
       `Failed to clone ${args.remoteUrl} into ${args.destPath}: ${
@@ -32,8 +47,14 @@ export async function cloneRepo(args: {
 }
 
 /** Fetch the latest refs from `origin` into the bare base repo at `repoPath`. */
-export async function fetchRepo(args: { repoPath: string }): Promise<void> {
-  await simpleGit(args.repoPath).fetch("origin");
+export async function fetchRepo(args: {
+  repoPath: string;
+  onProgress?: GitProgressCallback;
+}): Promise<void> {
+  await simpleGit({
+    baseDir: args.repoPath,
+    progress: args.onProgress,
+  }).fetch("origin");
 }
 
 /**
