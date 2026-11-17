@@ -16,7 +16,7 @@ The primary interaction. Given a repo and branch, `desk` ensures the repo is clo
 
 **Key behaviours:**
 - Always pulls latest before setting up
-- Creates the branch from the default if it doesn't exist yet
+- Creates the branch from the freshly fetched `origin/<default>` if it doesn't exist yet (with no upstream set, so it won't track the default branch)
 - Idempotent — re-running takes you back to an existing worktree
 - Notifies you when you're leaving an existing worktree
 - Runs `direnv allow` on the worktree path if direnv is installed, so the shell doesn't prompt on entry

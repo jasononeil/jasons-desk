@@ -89,9 +89,6 @@ describe("fetchRepo", () => {
     const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
     await cloneRepo({ remoteUrl, destPath });
 
-    // Bare clones don't populate refs/remotes/origin/* — only refs/heads/*.
-    // The first fetch is what creates the origin tracking refs we then watch.
-    await fetchRepo({ repoPath: destPath });
     const beforeSha = (
       await simpleGit(destPath).raw([
         "rev-parse",
@@ -318,6 +315,40 @@ describe("addWorktree", () => {
     expect(head).toBe("brand-new");
     // Contents should match default branch (README.md present, no extra).
     expect(existsSync(join(wt, "README.md"))).toBe(true);
+  });
+
+  test("creates a new branch from the latest fetched default branch", async () => {
+    // Regression: the local refs/heads/<default> is frozen at clone time, so
+    // new branches must be based on origin/<default> to pick up fetches.
+    const { remoteUrl, tmpRoot, defaultBranch } = await makeBareRepo();
+    tmpRoots.push(tmpRoot);
+    const deskHome = makeDeskHome();
+    const destPath = repoPath({ deskHome, orgName: "org", repoName: "repo" });
+    await cloneRepo({ remoteUrl, destPath });
+
+    await pushCommitToRemote({
+      remoteUrl,
+      branch: defaultBranch,
+      fileName: "AFTER-CLONE.md",
+      contents: "new\n",
+      message: "add AFTER-CLONE",
+    });
+    await fetchRepo({ repoPath: destPath });
+
+    const wt = worktreePath({
+      deskHome,
+      orgName: "org",
+      repoName: "repo",
+      branchName: "fresh",
+    });
+    await addWorktree({
+      repoPath: destPath,
+      worktreePath: wt,
+      branchName: "fresh",
+      defaultBranch,
+    });
+
+    expect(existsSync(join(wt, "AFTER-CLONE.md"))).toBe(true);
   });
 });
 

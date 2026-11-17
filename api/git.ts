@@ -19,6 +19,8 @@ export type GitProgressCallback = (event: GitProgressEvent) => void;
  * used in a worktree. After clone we rewrite the fetch refspec so that
  * subsequent `git fetch` updates `refs/remotes/origin/*` (not `refs/heads/*`),
  * which lets worktrees own their local branches without fetch conflicts.
+ * A bare clone only populates `refs/heads/*`, so we fetch once to create the
+ * `refs/remotes/origin/*` refs that new branches are based on.
  */
 export async function cloneRepo(args: {
   remoteUrl: string;
@@ -44,6 +46,7 @@ export async function cloneRepo(args: {
     "remote.origin.fetch",
     "+refs/heads/*:refs/remotes/origin/*",
   ]);
+  await fetchRepo({ repoPath: args.destPath, onProgress: args.onProgress });
 }
 
 /** Fetch the latest refs from `origin` into the bare base repo at `repoPath`. */
@@ -82,7 +85,9 @@ export async function detectDefaultBranch(args: {
 /**
  * Create a worktree at `worktreePath` for `branchName`. If the branch
  * already exists locally or on the remote, it is checked out. Otherwise
- * a new branch is created from `defaultBranch`.
+ * a new branch is created from `origin/<defaultBranch>` — the local
+ * `refs/heads/<defaultBranch>` is a snapshot from clone time and is never
+ * updated by fetch.
  */
 export async function addWorktree(args: {
   repoPath: string;
@@ -98,10 +103,11 @@ export async function addWorktree(args: {
     await git.raw([
       "worktree",
       "add",
+      "--no-track",
       "-b",
       args.branchName,
       args.worktreePath,
-      args.defaultBranch,
+      `origin/${args.defaultBranch}`,
     ]);
   }
 }
