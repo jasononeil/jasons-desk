@@ -26,7 +26,7 @@ export type OpenOptions = {
   repoSlug: string;
   branchName: string;
   taskId?: string;
-  /** Overrides the remote URL. Defaults to `git@github.com:org/repo.git`. */
+  /** Overrides the remote URL. Defaults to `https://github.com/org/repo.git`. */
   remoteUrl?: string;
   /** Used to detect whether we're leaving an existing worktree. */
   cwd?: string;
@@ -40,7 +40,7 @@ export type OpenResult = {
 };
 
 function defaultRemoteUrl(orgName: string, repoName: string): string {
-  return `git@github.com:${orgName}/${repoName}.git`;
+  return `https://github.com/${orgName}/${repoName}.git`;
 }
 
 /**

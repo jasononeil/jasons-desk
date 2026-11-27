@@ -15,6 +15,7 @@ desk open <repoSlug> <branch>
 The primary interaction. Given a repo and branch, `desk` ensures the repo is cloned and up to date, sets up a git worktree, and drops you directly into it. If either argument is missing, you're prompted to choose or create one.
 
 **Key behaviours:**
+- Clones from GitHub over HTTPS (`https://github.com/<org>/<repo>.git`), so auth goes through your git credential helper rather than SSH keys
 - Always pulls latest before setting up
 - Creates the branch from the freshly fetched `origin/<default>` if it doesn't exist yet (with no upstream set, so it won't track the default branch)
 - Idempotent — re-running takes you back to an existing worktree
